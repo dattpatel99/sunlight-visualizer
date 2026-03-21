@@ -5,7 +5,7 @@ import type { LatLng, BuildingData } from "../types";
 import { DEFAULT_BUILDING_HEIGHT, METERS_PER_LEVEL } from "../constants";
 
 const OVERTURE_BUILDINGS_URL =
-  "https://overturemaps-tiles-us-west-2-beta.s3.amazonaws.com/2026-02-18/buildings.pmtiles";
+  "https://overturemaps-tiles-us-west-2-beta.s3.amazonaws.com/2024-12-18/buildings.pmtiles";
 
 let pmtilesInstance: PMTiles | null = null;
 
@@ -85,7 +85,7 @@ export async function fetchOvertureBuildings(
   const tiles = getTilesForBbox(bbox.minLat, bbox.minLng, bbox.maxLat, bbox.maxLng, zoom);
 
   const buildings: BuildingData[] = [];
-  const seenIds = new Set<number>();
+  const seenIds = new Set<string>();
 
   // Fetch all tiles in parallel
   const tileResults = await Promise.all(
@@ -99,6 +99,8 @@ export async function fetchOvertureBuildings(
       }
     })
   );
+
+  let nextId = 1;
 
   for (const result of tileResults) {
     if (!result) continue;
@@ -115,10 +117,10 @@ export async function fetchOvertureBuildings(
       const feature = layer.feature(i);
       if (feature.type !== 3) continue; // 3 = Polygon
 
-      // Deduplicate across tile boundaries
-      const id = feature.id || i + tile.x * 100000 + tile.y * 1000000000;
-      if (seenIds.has(id)) continue;
-      seenIds.add(id);
+      // Deduplicate across tile boundaries using Overture's string ID
+      const overtureId = String(feature.properties.id || `${tile.z}-${tile.x}-${tile.y}-${i}`);
+      if (seenIds.has(overtureId)) continue;
+      seenIds.add(overtureId);
 
       // Convert to GeoJSON to get lng/lat coordinates
       const geojson = feature.toGeoJSON(tile.x, tile.y, tile.z);
@@ -158,7 +160,7 @@ export async function fetchOvertureBuildings(
 
       if (footprint.length >= 3) {
         buildings.push({
-          id: typeof id === "number" ? id : i,
+          id: nextId++,
           footprint,
           height: parseHeight(feature.properties),
         });
