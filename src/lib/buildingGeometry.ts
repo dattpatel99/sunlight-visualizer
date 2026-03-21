@@ -8,9 +8,13 @@ export function createBuildingGeometry(
   const shape = new THREE.Shape();
   const fp = building.footprint;
 
-  shape.moveTo(fp[0][0], fp[0][1]);
-  for (let i = 1; i < fp.length; i++) {
-    shape.lineTo(fp[i][0], fp[i][1]);
+  // Shape is drawn on the XY plane. After rotateX(-PI/2), shape Y maps to
+  // world -Z. Our footprint Z convention is +Z = south, so we negate Z here
+  // so that south stays +Z after the rotation. We also reverse vertex order
+  // to preserve correct face winding (outward normals).
+  shape.moveTo(fp[fp.length - 1][0], -fp[fp.length - 1][1]);
+  for (let i = fp.length - 2; i >= 0; i--) {
+    shape.lineTo(fp[i][0], -fp[i][1]);
   }
   shape.closePath();
 
