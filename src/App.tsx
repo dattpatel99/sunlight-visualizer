@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import type { LatLng } from "./types";
 import { DEFAULT_LOCATION, OVERPASS_RADIUS } from "./constants";
-import { useBuildings } from "./hooks/useBuildings";
+import { useBuildings, type DataSource } from "./hooks/useBuildings";
 import { useSunPosition } from "./hooks/useSunPosition";
 import { useFacadeAnalysis } from "./hooks/useFacadeAnalysis";
 import { useUrlState } from "./hooks/useUrlState";
@@ -25,6 +25,7 @@ export default function App() {
   const [date, setDate] = useState<Date>(getDefaultDate);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
   const [radius, setRadius] = useState(OVERPASS_RADIUS);
+  const [dataSource, setDataSource] = useState<DataSource>("overture");
 
   const { buildings, loading, error, load } = useBuildings();
   const sunPosition = useSunPosition(center, date);
@@ -46,23 +47,24 @@ export default function App() {
     (state: Partial<{ center: LatLng; date: Date }>) => {
       if (state.center) setCenter(state.center);
       if (state.date) setDate(state.date);
-      if (state.center) load(state.center, radius);
+      if (state.center) load(state.center, radius, dataSource);
     },
-    [load, radius]
+    [load, radius, dataSource]
   );
   useUrlState(center, date, handleRestore);
 
-  const handleLoad = (loc: LatLng, r: number) => {
+  const handleLoad = (loc: LatLng, r: number, source: DataSource) => {
     setCenter(loc);
     setRadius(r);
+    setDataSource(source);
     setSelectedBuildingId(null);
-    load(loc, r);
+    load(loc, r, source);
   };
 
   const handleAddressSelect = (loc: LatLng) => {
     setCenter(loc);
     setSelectedBuildingId(null);
-    load(loc, radius);
+    load(loc, radius, dataSource);
   };
 
   const handleSelectBuilding = (id: number) => {
@@ -109,7 +111,7 @@ export default function App() {
         )}
 
         <div style={{ marginTop: "auto", fontSize: 11, color: "#aaa" }}>
-          Data: OpenStreetMap contributors
+          Data: {dataSource === "overture" ? "Overture Maps Foundation" : "OpenStreetMap contributors"}
         </div>
       </div>
 
