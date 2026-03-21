@@ -1,15 +1,19 @@
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import type { ProjectedBuilding, SunPositionData } from "../types";
+import type { LatLng, ProjectedBuilding, SunPositionData } from "../types";
+import type { FacadeExposure } from "../lib/facadeUtils";
 import { Buildings } from "./Buildings";
 import { SunLight } from "./SunLight";
 import { Ground } from "./Ground";
+import { Compass } from "./Compass";
 
 interface SceneProps {
   buildings: ProjectedBuilding[];
   sunPosition: SunPositionData;
   selectedBuildingId: number | null;
   onSelectBuilding: (id: number) => void;
+  facadeExposures: FacadeExposure[];
+  center: LatLng;
 }
 
 export function Scene({
@@ -17,6 +21,8 @@ export function Scene({
   sunPosition,
   selectedBuildingId,
   onSelectBuilding,
+  facadeExposures,
+  center,
 }: SceneProps) {
   return (
     <Canvas
@@ -27,12 +33,14 @@ export function Scene({
     >
       <color attach="background" args={[sunPosition.isNight ? "#1a1a2e" : "#87ceeb"]} />
       <SunLight sunPosition={sunPosition} />
-      <Ground />
+      <Ground center={center} />
       <Buildings
         buildings={buildings}
         selectedId={selectedBuildingId}
         onSelect={onSelectBuilding}
+        facadeExposures={facadeExposures}
       />
+      <Compass />
       <OrbitControls
         makeDefault
         maxPolarAngle={Math.PI / 2 - 0.05}

@@ -1,21 +1,22 @@
 import { useState } from "react";
 import type { LatLng } from "../types";
-import { PRESETS } from "../constants";
+import { PRESETS, OVERPASS_RADIUS } from "../constants";
 
 interface LocationInputProps {
-  onLoad: (center: LatLng) => void;
+  onLoad: (center: LatLng, radius: number) => void;
   loading: boolean;
 }
 
 export function LocationInput({ onLoad, loading }: LocationInputProps) {
   const [lat, setLat] = useState("40.748");
   const [lng, setLng] = useState("-73.986");
+  const [radius, setRadius] = useState(OVERPASS_RADIUS);
 
   const handleLoad = () => {
     const latNum = parseFloat(lat);
     const lngNum = parseFloat(lng);
     if (isNaN(latNum) || isNaN(lngNum)) return;
-    onLoad({ lat: latNum, lng: lngNum });
+    onLoad({ lat: latNum, lng: lngNum }, radius);
   };
 
   return (
@@ -41,6 +42,20 @@ export function LocationInput({ onLoad, loading }: LocationInputProps) {
           />
         </label>
       </div>
+      <label>
+        <span style={{ fontSize: 12, color: "#888" }}>
+          Radius: {radius}m
+        </span>
+        <input
+          type="range"
+          min={50}
+          max={500}
+          step={25}
+          value={radius}
+          onChange={(e) => setRadius(Number(e.target.value))}
+          style={{ width: "100%", marginTop: 2 }}
+        />
+      </label>
       <button onClick={handleLoad} disabled={loading} style={buttonStyle}>
         {loading ? "Loading..." : "Load Buildings"}
       </button>
@@ -51,7 +66,7 @@ export function LocationInput({ onLoad, loading }: LocationInputProps) {
             onClick={() => {
               setLat(String(p.location.lat));
               setLng(String(p.location.lng));
-              onLoad(p.location);
+              onLoad(p.location, radius);
             }}
             disabled={loading}
             style={presetStyle}

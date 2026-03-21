@@ -8,7 +8,7 @@ interface UseBuildingsResult {
   rawBuildings: BuildingData[];
   loading: boolean;
   error: string | null;
-  load: (center: LatLng) => void;
+  load: (center: LatLng, radius: number) => void;
 }
 
 export function useBuildings(): UseBuildingsResult {
@@ -17,11 +17,11 @@ export function useBuildings(): UseBuildingsResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback((center: LatLng) => {
+  const load = useCallback((center: LatLng, radius: number) => {
     setLoading(true);
     setError(null);
 
-    fetchBuildings(center)
+    fetchBuildings(center, radius)
       .then((data) => {
         setRawBuildings(data);
         setBuildings(projectBuildings(data, center));

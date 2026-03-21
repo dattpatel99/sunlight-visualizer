@@ -14,4 +14,4 @@ export const SUN_DISTANCE = 200;
 export const GROUND_SIZE = 1000;
 export const DEFAULT_BUILDING_HEIGHT = 10;
 export const METERS_PER_LEVEL = 3;
-export const OVERPASS_RADIUS = 300; // meters
+export const OVERPASS_RADIUS = 150; // meters

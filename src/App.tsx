@@ -1,12 +1,18 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import type { LatLng } from "./types";
-import { DEFAULT_LOCATION } from "./constants";
+import { DEFAULT_LOCATION, OVERPASS_RADIUS } from "./constants";
 import { useBuildings } from "./hooks/useBuildings";
 import { useSunPosition } from "./hooks/useSunPosition";
+import { useFacadeAnalysis } from "./hooks/useFacadeAnalysis";
+import { useUrlState } from "./hooks/useUrlState";
+import { computeSunlightStats } from "./lib/sunlightStats";
 import { Scene } from "./components/Scene";
 import { LocationInput } from "./components/LocationInput";
+import { AddressSearch } from "./components/AddressSearch";
 import { TimeControls } from "./components/TimeControls";
 import { BuildingInfo } from "./components/BuildingInfo";
+import { FacadeAnalysis } from "./components/FacadeAnalysis";
+import { SunlightStatsPanel } from "./components/SunlightStats";
 
 function getDefaultDate(): Date {
   const d = new Date();
@@ -18,6 +24,7 @@ export default function App() {
   const [center, setCenter] = useState<LatLng>(DEFAULT_LOCATION);
   const [date, setDate] = useState<Date>(getDefaultDate);
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
+  const [radius, setRadius] = useState(OVERPASS_RADIUS);
 
   const { buildings, loading, error, load } = useBuildings();
   const sunPosition = useSunPosition(center, date);
@@ -27,10 +34,35 @@ export default function App() {
     [buildings, selectedBuildingId]
   );
 
-  const handleLoad = (loc: LatLng) => {
+  const facadeExposures = useFacadeAnalysis(selectedBuilding, center, date);
+
+  const sunlightStats = useMemo(
+    () => computeSunlightStats(center, date, facadeExposures),
+    [center, date, facadeExposures]
+  );
+
+  // URL state sync
+  const handleRestore = useCallback(
+    (state: Partial<{ center: LatLng; date: Date }>) => {
+      if (state.center) setCenter(state.center);
+      if (state.date) setDate(state.date);
+      if (state.center) load(state.center, radius);
+    },
+    [load, radius]
+  );
+  useUrlState(center, date, handleRestore);
+
+  const handleLoad = (loc: LatLng, r: number) => {
+    setCenter(loc);
+    setRadius(r);
+    setSelectedBuildingId(null);
+    load(loc, r);
+  };
+
+  const handleAddressSelect = (loc: LatLng) => {
     setCenter(loc);
     setSelectedBuildingId(null);
-    load(loc);
+    load(loc, radius);
   };
 
   const handleSelectBuilding = (id: number) => {
@@ -41,7 +73,9 @@ export default function App() {
     <div style={{ display: "flex", width: "100%", height: "100%" }}>
       {/* Sidebar */}
       <div style={sidebarStyle}>
-        <h2 style={{ margin: "0 0 8px 0", fontSize: 18 }}>Sunlight Visualizer</h2>
+        <h2 style={{ margin: "0 0 4px 0", fontSize: 18 }}>Sunlight Visualizer</h2>
+
+        <AddressSearch onSelect={handleAddressSelect} />
 
         <LocationInput onLoad={handleLoad} loading={loading} />
 
@@ -57,13 +91,22 @@ export default function App() {
           </div>
         )}
 
-        <hr style={{ border: "none", borderTop: "1px solid #eee", margin: "4px 0" }} />
+        <hr style={hrStyle} />
 
         <TimeControls date={date} onDateChange={setDate} />
 
-        <hr style={{ border: "none", borderTop: "1px solid #eee", margin: "4px 0" }} />
+        <hr style={hrStyle} />
 
         <BuildingInfo building={selectedBuilding} />
+
+        {facadeExposures.length > 0 && (
+          <>
+            <hr style={hrStyle} />
+            <FacadeAnalysis facades={facadeExposures} />
+            <hr style={hrStyle} />
+            <SunlightStatsPanel stats={sunlightStats} />
+          </>
+        )}
 
         <div style={{ marginTop: "auto", fontSize: 11, color: "#aaa" }}>
           Data: OpenStreetMap contributors
@@ -77,18 +120,26 @@ export default function App() {
           sunPosition={sunPosition}
           selectedBuildingId={selectedBuildingId}
           onSelectBuilding={handleSelectBuilding}
+          facadeExposures={facadeExposures}
+          center={center}
         />
       </div>
     </div>
   );
 }
 
+const hrStyle: React.CSSProperties = {
+  border: "none",
+  borderTop: "1px solid #eee",
+  margin: "4px 0",
+};
+
 const sidebarStyle: React.CSSProperties = {
   width: 280,
   padding: 16,
   display: "flex",
   flexDirection: "column",
-  gap: 12,
+  gap: 10,
   borderRight: "1px solid #e5e5e5",
   overflowY: "auto",
   background: "#fafafa",
