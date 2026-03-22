@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { ProjectedBuilding } from "../types";
 import type { FacadeExposure } from "../lib/facadeUtils";
+import { normalToDirection } from "../lib/facadeUtils";
 import { createBuildingGeometry } from "../lib/buildingGeometry";
 
 interface BuildingProps {
@@ -9,6 +10,7 @@ interface BuildingProps {
   selected: boolean;
   onSelect: (id: number) => void;
   facadeExposures?: FacadeExposure[];
+  highlightDirection?: string | null;
 }
 
 /** Map sunlight hours to a color: blue (shade) -> yellow (full sun) */
@@ -20,86 +22,105 @@ function exposureToColor(hours: number, maxHours: number): THREE.Color {
   return shade.clone().lerp(sun, t);
 }
 
-export function Building({ building, selected, onSelect, facadeExposures }: BuildingProps) {
+const HIGHLIGHT_COLOR = new THREE.Color("#ff44ff");
+const DIM_COLOR = new THREE.Color("#334466");
+const TOP_COLOR = new THREE.Color("#8899bb");
+
+export function Building({ building, selected, onSelect, facadeExposures, highlightDirection }: BuildingProps) {
   const [hovered, setHovered] = useState(false);
+  const matRef = useRef<THREE.MeshStandardMaterial>(null);
   const geometry = useMemo(() => createBuildingGeometry(building), [building]);
 
-  // When selected and we have facade data, apply per-face vertex colors
-  const coloredGeometry = useMemo(() => {
-    if (!selected || !facadeExposures || facadeExposures.length === 0) return null;
+  // Build a lookup: merged direction -> exposure data
+  const directionMap = useMemo(() => {
+    if (!facadeExposures) return null;
+    const map = new Map<string, FacadeExposure>();
+    for (const fe of facadeExposures) {
+      map.set(fe.direction, fe);
+    }
+    return map;
+  }, [facadeExposures]);
 
-    const geo = geometry.clone();
-    const maxHours = Math.max(...facadeExposures.map((f) => f.sunlightHours), 0.1);
-    const fp = building.footprint;
-    const n = fp.length;
+  const shouldColor = selected && !!directionMap;
 
-    // ExtrudeGeometry groups: 0=top cap, 1=bottom cap, 2=sides
-    // Side faces: for each edge i, there are 2 triangles (6 vertices)
-    // The position buffer is ordered: top cap vertices, bottom cap vertices, side vertices
+  // Apply vertex colors by reading each triangle's normal from the geometry.
+  // ExtrudeGeometry in Three.js 0.175 is non-indexed with all triangles
+  // stored sequentially (every 3 vertices = 1 triangle).
+  // useLayoutEffect ensures colors are applied before the browser paints.
+  useLayoutEffect(() => {
+    if (!shouldColor) {
+      if (geometry.hasAttribute("color")) {
+        geometry.deleteAttribute("color");
+      }
+      if (matRef.current) {
+        matRef.current.vertexColors = false;
+        matRef.current.needsUpdate = true;
+      }
+      return;
+    }
 
-    const posAttr = geo.getAttribute("position");
-    const colors = new Float32Array(posAttr.count * 3);
+    const maxHours = Math.max(
+      ...[...directionMap!.values()].map((f) => f.sunlightHours),
+      0.1
+    );
 
-    // Default color for top/bottom caps
-    const topColor = new THREE.Color("#8899bb");
+    const posAttr = geometry.getAttribute("position");
+    const normalAttr = geometry.getAttribute("normal");
+    const vertexCount = posAttr.count;
+    const colors = new Float32Array(vertexCount * 3);
 
-    // Assign colors per vertex
-    // We need to figure out which group each vertex belongs to
-    const groups = geo.groups;
-    if (groups.length >= 3) {
-      // Group 0 = top, Group 1 = bottom, Group 2 = sides
-      const topGroup = groups[0];
-      const bottomGroup = groups[1];
-      const sideGroup = groups[2];
+    // For each triangle, read its normal to classify it
+    for (let vi = 0; vi < vertexCount; vi += 3) {
+      // Read the normal of the first vertex of this triangle
+      const nx = normalAttr.getX(vi);
+      const ny = normalAttr.getY(vi);
+      const nz = normalAttr.getZ(vi);
 
-      const indexAttr = geo.getIndex();
-      if (!indexAttr) return null;
-      const indices = indexAttr.array;
+      let triColor: THREE.Color;
 
-      // Color top and bottom caps
-      for (const group of [topGroup, bottomGroup]) {
-        for (let i = group.start; i < group.start + group.count; i++) {
-          const vi = indices[i];
-          colors[vi * 3] = topColor.r;
-          colors[vi * 3 + 1] = topColor.g;
-          colors[vi * 3 + 2] = topColor.b;
+      if (Math.abs(ny) > 0.9) {
+        // Top or bottom cap
+        triColor = TOP_COLOR;
+      } else {
+        // Side wall: determine cardinal direction from horizontal normal
+        const direction = normalToDirection(nx, nz);
+        const facade = directionMap!.get(direction);
+
+        if (highlightDirection && direction === highlightDirection) {
+          triColor = HIGHLIGHT_COLOR;
+        } else if (highlightDirection) {
+          triColor = DIM_COLOR;
+        } else if (facade) {
+          triColor = exposureToColor(facade.sunlightHours, maxHours);
+        } else {
+          triColor = TOP_COLOR;
         }
       }
 
-      // Color side faces by matching to facade edges
-      // Sides have 2 triangles (6 indices) per edge, in edge order
-      const sideStart = sideGroup.start;
-      const indicesPerEdge = 6;
-
-      for (let edgeIdx = 0; edgeIdx < n; edgeIdx++) {
-        const facadeColor =
-          edgeIdx < facadeExposures.length
-            ? exposureToColor(facadeExposures[edgeIdx].sunlightHours, maxHours)
-            : topColor;
-
-        const baseIdx = sideStart + edgeIdx * indicesPerEdge;
-        for (let k = 0; k < indicesPerEdge; k++) {
-          const vi = indices[baseIdx + k];
-          if (vi !== undefined) {
-            colors[vi * 3] = facadeColor.r;
-            colors[vi * 3 + 1] = facadeColor.g;
-            colors[vi * 3 + 2] = facadeColor.b;
-          }
-        }
+      // Apply same color to all 3 vertices of this triangle
+      for (let k = 0; k < 3; k++) {
+        colors[(vi + k) * 3] = triColor.r;
+        colors[(vi + k) * 3 + 1] = triColor.g;
+        colors[(vi + k) * 3 + 2] = triColor.b;
       }
     }
 
-    geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-    return geo;
-  }, [geometry, selected, facadeExposures, building.footprint]);
+    const attr = new THREE.BufferAttribute(colors, 3);
+    geometry.setAttribute("color", attr);
+    attr.needsUpdate = true;
 
-  const showVertexColors = selected && coloredGeometry;
-  const activeGeometry = showVertexColors ? coloredGeometry : geometry;
+    if (matRef.current) {
+      matRef.current.vertexColors = true;
+      matRef.current.color.set("#ffffff");
+      matRef.current.needsUpdate = true;
+    }
+  }, [geometry, shouldColor, directionMap, highlightDirection]);
+
   const color = selected ? "#ff9900" : hovered ? "#8899bb" : "#6677aa";
 
   return (
     <mesh
-      geometry={activeGeometry}
+      geometry={geometry}
       castShadow
       receiveShadow
       onClick={(e) => {
@@ -117,8 +138,9 @@ export function Building({ building, selected, onSelect, facadeExposures }: Buil
       }}
     >
       <meshStandardMaterial
-        color={showVertexColors ? "#ffffff" : color}
-        vertexColors={!!showVertexColors}
+        ref={matRef}
+        color={shouldColor ? "#ffffff" : color}
+        vertexColors={shouldColor}
       />
     </mesh>
   );

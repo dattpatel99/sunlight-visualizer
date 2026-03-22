@@ -11,11 +11,12 @@ interface BuildingsProps {
   selectedId: number | null;
   onSelect: (id: number) => void;
   facadeExposures: FacadeExposure[];
+  highlightDirection: string | null;
 }
 
 const MERGE_THRESHOLD = 50;
 
-export function Buildings({ buildings, selectedId, onSelect, facadeExposures }: BuildingsProps) {
+export function Buildings({ buildings, selectedId, onSelect, facadeExposures, highlightDirection }: BuildingsProps) {
   // For small counts, render individually for full interactivity.
   // For large counts, merge non-selected buildings into one mesh.
   const shouldMerge = buildings.length > MERGE_THRESHOLD;
@@ -95,6 +96,7 @@ export function Buildings({ buildings, selectedId, onSelect, facadeExposures }: 
             selected={true}
             onSelect={onSelect}
             facadeExposures={facadeExposures}
+            highlightDirection={highlightDirection}
           />
         )}
       </group>
@@ -111,6 +113,7 @@ export function Buildings({ buildings, selectedId, onSelect, facadeExposures }: 
           selected={b.id === selectedId}
           onSelect={onSelect}
           facadeExposures={b.id === selectedId ? facadeExposures : undefined}
+          highlightDirection={b.id === selectedId ? highlightDirection : null}
         />
       ))}
     </group>

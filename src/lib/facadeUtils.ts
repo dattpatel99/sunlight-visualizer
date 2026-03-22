@@ -33,7 +33,7 @@ const DIRECTIONS = [
   { label: "NW", min: 292.5, max: 337.5 },
 ];
 
-function normalToDirection(nx: number, nz: number): string {
+export function normalToDirection(nx: number, nz: number): string {
   // Convert normal to compass bearing in degrees.
   // Our coordinate system: +X = east, -Z = north
   // atan2(nx, -nz) gives angle from north, clockwise
@@ -98,16 +98,69 @@ function sunXZ(azimuth: number): [number, number] {
 }
 
 /**
- * Compute sunlight exposure hours for each facade of a building.
- * Samples every 15 minutes from sunrise to sunset.
+ * Merge facades that face the same cardinal direction into single entries,
+ * using length-weighted average normals. This collapses 12-16 polygon edges
+ * into 4-8 meaningful wall directions.
+ */
+function mergeFacadesByDirection(facades: Facade[]): Facade[] {
+  const groups = new Map<string, Facade[]>();
+  for (const f of facades) {
+    const existing = groups.get(f.direction);
+    if (existing) {
+      existing.push(f);
+    } else {
+      groups.set(f.direction, [f]);
+    }
+  }
+
+  const merged: Facade[] = [];
+  for (const [direction, group] of groups) {
+    const totalLength = group.reduce((sum, f) => sum + f.length, 0);
+    // Length-weighted average normal
+    let wnx = 0;
+    let wnz = 0;
+    for (const f of group) {
+      wnx += f.normal[0] * f.length;
+      wnz += f.normal[1] * f.length;
+    }
+    const nLen = Math.sqrt(wnx * wnx + wnz * wnz);
+    const nx = nLen > 0 ? wnx / nLen : 0;
+    const nz = nLen > 0 ? wnz / nLen : 0;
+
+    // Use the longest segment's start/end as representative
+    const longest = group.reduce((a, b) => (b.length > a.length ? b : a));
+
+    merged.push({
+      start: longest.start,
+      end: longest.end,
+      midpoint: longest.midpoint,
+      normal: [nx, nz],
+      direction,
+      length: totalLength,
+    });
+  }
+
+  // Sort by compass order: N, NE, E, SE, S, SW, W, NW
+  const order = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  merged.sort((a, b) => order.indexOf(a.direction) - order.indexOf(b.direction));
+
+  return merged;
+}
+
+/**
+ * Compute sunlight exposure hours per cardinal direction for a building.
+ * Merges polygon edges by direction, then samples sun position every
+ * 15 minutes from sunrise to sunset.
  */
 export function computeFacadeExposure(
   building: ProjectedBuilding,
   center: LatLng,
   date: Date
 ): FacadeExposure[] {
-  const facades = extractFacades(building);
-  if (facades.length === 0) return [];
+  const rawFacades = extractFacades(building);
+  if (rawFacades.length === 0) return [];
+
+  const facades = mergeFacadesByDirection(rawFacades);
 
   // Get sunrise/sunset for this date
   const times = SunCalc.getTimes(date, center.lat, center.lng);

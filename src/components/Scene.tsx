@@ -14,6 +14,7 @@ interface SceneProps {
   onSelectBuilding: (id: number) => void;
   facadeExposures: FacadeExposure[];
   center: LatLng;
+  highlightDirection: string | null;
 }
 
 export function Scene({
@@ -23,6 +24,7 @@ export function Scene({
   onSelectBuilding,
   facadeExposures,
   center,
+  highlightDirection,
 }: SceneProps) {
   return (
     <Canvas
@@ -39,6 +41,7 @@ export function Scene({
         selectedId={selectedBuildingId}
         onSelect={onSelectBuilding}
         facadeExposures={facadeExposures}
+        highlightDirection={highlightDirection}
       />
       <Compass />
       <OrbitControls

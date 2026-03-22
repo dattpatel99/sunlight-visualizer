@@ -26,6 +26,7 @@ export default function App() {
   const [selectedBuildingId, setSelectedBuildingId] = useState<number | null>(null);
   const [radius, setRadius] = useState(OVERPASS_RADIUS);
   const [dataSource, setDataSource] = useState<DataSource>("overture");
+  const [selectedFacadeDirection, setSelectedFacadeDirection] = useState<string | null>(null);
 
   const { buildings, loading, error, load } = useBuildings();
   const sunPosition = useSunPosition(center, date);
@@ -58,17 +59,20 @@ export default function App() {
     setRadius(r);
     setDataSource(source);
     setSelectedBuildingId(null);
+    setSelectedFacadeDirection(null);
     load(loc, r, source);
   };
 
   const handleAddressSelect = (loc: LatLng) => {
     setCenter(loc);
     setSelectedBuildingId(null);
+    setSelectedFacadeDirection(null);
     load(loc, radius, dataSource);
   };
 
   const handleSelectBuilding = (id: number) => {
     setSelectedBuildingId(id === -1 ? null : id);
+    setSelectedFacadeDirection(null);
   };
 
   return (
@@ -104,7 +108,11 @@ export default function App() {
         {facadeExposures.length > 0 && (
           <>
             <hr style={hrStyle} />
-            <FacadeAnalysis facades={facadeExposures} />
+            <FacadeAnalysis
+              facades={facadeExposures}
+              selectedDirection={selectedFacadeDirection}
+              onSelectDirection={setSelectedFacadeDirection}
+            />
             <hr style={hrStyle} />
             <SunlightStatsPanel stats={sunlightStats} />
           </>
@@ -124,6 +132,7 @@ export default function App() {
           onSelectBuilding={handleSelectBuilding}
           facadeExposures={facadeExposures}
           center={center}
+          highlightDirection={selectedFacadeDirection}
         />
       </div>
     </div>
