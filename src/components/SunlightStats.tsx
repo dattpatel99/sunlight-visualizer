@@ -37,10 +37,28 @@ export function SunlightStatsPanel({ stats }: SunlightStatsProps) {
         </div>
       )}
       {stats.totalFacades > 0 && (
-        <div style={rowStyle}>
-          <span style={labelStyle}>Avg exposure</span>
-          <span>{stats.avgExposure.toFixed(1)}h</span>
-        </div>
+        <>
+          <div style={rowStyle}>
+            <span style={labelStyle}>Avg exposure</span>
+            <span>{stats.avgExposure.toFixed(1)}h</span>
+          </div>
+          <div style={rowStyle}>
+            <span style={labelStyle}>Peak intensity</span>
+            <span>{stats.peakIntensity.toFixed(0)} W/m²</span>
+          </div>
+          {stats.bestEnergyFacade && (
+            <div style={rowStyle}>
+              <span style={labelStyle}>Best energy</span>
+              <span>
+                {stats.bestEnergyFacade.direction} ({stats.bestEnergyFacade.energy.toFixed(0)} Wh/m²)
+              </span>
+            </div>
+          )}
+          <div style={rowStyle}>
+            <span style={labelStyle}>Avg energy/day</span>
+            <span>{stats.avgDailyEnergy.toFixed(0)} Wh/m²</span>
+          </div>
+        </>
       )}
     </div>
   );

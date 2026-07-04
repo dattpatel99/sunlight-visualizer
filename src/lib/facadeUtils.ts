@@ -1,6 +1,9 @@
 import SunCalc from "suncalc";
 import type { LatLng, ProjectedBuilding } from "../types";
 
+/** Approximate solar constant at sea level, clear sky, perpendicular to sun (W/m²) */
+export const SOLAR_CONSTANT = 1000;
+
 export interface Facade {
   /** Start point [x, z] in local meters */
   start: [number, number];
@@ -17,8 +20,23 @@ export interface Facade {
 }
 
 export interface FacadeExposure extends Facade {
-  /** Total hours of direct sunlight */
+  /**
+   * Effective sunlit hours — kept for backward compatibility.
+   * Now derived from dailyEnergy / SOLAR_CONSTANT.
+   */
   sunlightHours: number;
+  /** Instantaneous direct irradiance at the given moment (W/m²) */
+  intensity: number;
+  /**
+   * Integrated daily direct radiant energy per unit facade area (Wh/m²/day).
+   * Derived from summing DNI × cosTheta × dt over all daylight samples.
+   */
+  dailyEnergy: number;
+  /**
+   * Cosine of the angle between the facade normal and sun direction (0–1).
+   * 1 = sun directly perpendicular to facade; 0 = sun grazing or behind facade.
+   */
+  cosTheta: number;
 }
 
 const DIRECTIONS = [
@@ -148,33 +166,47 @@ function mergeFacadesByDirection(facades: Facade[]): Facade[] {
 }
 
 /**
- * Compute sunlight exposure hours per cardinal direction for a building.
- * Merges polygon edges by direction, then samples sun position every
- * 15 minutes from sunrise to sunset.
+ * Compute sunlight exposure, instantaneous irradiance, and daily energy
+ * per cardinal direction for a building.
+ *
+ * @param building     - the projected building
+ * @param center       - lat/lng center for sun calculations
+ * @param date         - date for analysis (time-of-day used for current intensity)
+ * @param currentTime  - optional explicit time for instantaneous intensity.
+ *                       Defaults to the time component of `date`.
  */
 export function computeFacadeExposure(
   building: ProjectedBuilding,
   center: LatLng,
-  date: Date
+  date: Date,
+  currentTime?: Date
 ): FacadeExposure[] {
   const rawFacades = extractFacades(building);
   if (rawFacades.length === 0) return [];
 
   const facades = mergeFacadesByDirection(rawFacades);
 
-  // Get sunrise/sunset for this date
-  const times = SunCalc.getTimes(date, center.lat, center.lng);
+  // Get sunrise/sunset for this date (at noon for day-length)
+  const analysisDate = new Date(date);
+  analysisDate.setHours(12, 0, 0, 0);
+  const times = SunCalc.getTimes(analysisDate, center.lat, center.lng);
   const sunrise = times.sunrise.getTime();
   const sunset = times.sunset.getTime();
 
   if (isNaN(sunrise) || isNaN(sunset) || sunset <= sunrise) {
-    return facades.map((f) => ({ ...f, sunlightHours: 0 }));
+    return facades.map((f) => ({
+      ...f,
+      sunlightHours: 0,
+      intensity: 0,
+      dailyEnergy: 0,
+      cosTheta: 0,
+    }));
   }
 
   const SAMPLE_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
   const sampleHours = SAMPLE_INTERVAL_MS / (3600 * 1000);
 
-  // Pre-compute sun directions for all sample times
+  // Pre-compute sun data for all sample times (altitude + XZ direction)
   const sunSamples: { altitude: number; dx: number; dz: number }[] = [];
   for (let t = sunrise; t <= sunset; t += SAMPLE_INTERVAL_MS) {
     const pos = SunCalc.getPosition(new Date(t), center.lat, center.lng);
@@ -184,19 +216,36 @@ export function computeFacadeExposure(
     }
   }
 
+  // Compute instantaneous intensity at currentTime (or date's time)
+  const instant = currentTime ?? date;
+  const instantPos = SunCalc.getPosition(instant, center.lat, center.lng);
+  const instantAltitude = instantPos.altitude;
+  const instantDNI =
+    instantAltitude > 0 ? SOLAR_CONSTANT * Math.sin(instantAltitude) : 0;
+  const [instantDx, instantDz] = sunXZ(instantPos.azimuth);
+
   return facades.map((facade) => {
-    let exposure = 0;
     const [nx, nz] = facade.normal;
 
+    // Instantaneous values at current time
+    const cosThetaInstant = Math.max(0, nx * instantDx + nz * instantDz);
+    const intensity = instantDNI * cosThetaInstant;
+
+    // Daily energy integration: sum DNI × cosTheta × dt over all samples
+    let dailyEnergy = 0;
     for (const sample of sunSamples) {
-      // Dot product of facade normal with sun direction on XZ plane
-      const dot = nx * sample.dx + nz * sample.dz;
-      if (dot > 0) {
-        // Facade faces toward the sun; weight by how direct the light is
-        exposure += dot * sampleHours;
+      const cosTheta = nx * sample.dx + nz * sample.dz;
+      if (cosTheta > 0) {
+        const dni = SOLAR_CONSTANT * Math.sin(sample.altitude);
+        dailyEnergy += dni * cosTheta * sampleHours;
       }
     }
 
-    return { ...facade, sunlightHours: exposure };
+    // Backward-compat sunlightHours derived from energy
+    const sunlightHours = dailyEnergy / SOLAR_CONSTANT;
+    // cosTheta at current time for display
+    const cosTheta = cosThetaInstant;
+
+    return { ...facade, sunlightHours, intensity, dailyEnergy, cosTheta };
   });
 }

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { FacadeAnalysis } from "../FacadeAnalysis";
 import type { FacadeExposure } from "../../lib/facadeUtils";
 
-function makeFacade(direction: string, sunlightHours: number): FacadeExposure {
+function makeFacade(direction: string, sunlightHours: number, intensity = 0, dailyEnergy = 0, cosTheta = 0): FacadeExposure {
   return {
     start: [0, 0],
     end: [10, 0],
@@ -13,6 +13,9 @@ function makeFacade(direction: string, sunlightHours: number): FacadeExposure {
     direction,
     length: 10,
     sunlightHours,
+    intensity,
+    dailyEnergy,
+    cosTheta,
   };
 }
 
@@ -83,7 +86,7 @@ describe("FacadeAnalysis", () => {
   it("selected facade has highlighted styling", () => {
     const facades = [makeFacade("N", 5.0), makeFacade("S", 3.0)];
 
-    render(
+    const { container } = render(
       <FacadeAnalysis
         facades={facades}
         selectedDirection="N"
@@ -91,14 +94,12 @@ describe("FacadeAnalysis", () => {
       />,
     );
 
-    const nLabel = screen.getByText("N");
-    const nRow = nLabel.closest("div[style]")!;
-
+    // Verify selected N row has highlighted background
+    const nRow = container.querySelector<HTMLElement>('[data-testid="facade-row-N"]');
     expect(nRow).toHaveStyle({ background: "#e0e7ff" });
 
-    const sLabel = screen.getByText("S");
-    const sRow = sLabel.closest("div[style]")!;
-
+    // Verify non-selected S row has transparent background
+    const sRow = container.querySelector<HTMLElement>('[data-testid="facade-row-S"]');
     expect(sRow).toHaveStyle({ background: "transparent" });
   });
 });

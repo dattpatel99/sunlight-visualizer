@@ -10,6 +10,12 @@ export interface SunlightStats {
   worstFacade: { direction: string; hours: number } | null;
   avgExposure: number;
   totalFacades: number;
+  /** Peak instantaneous irradiance across all facades (W/m²) */
+  peakIntensity: number;
+  /** Total daily radiant energy across all facades, averaged per facade (Wh/m²/day) */
+  avgDailyEnergy: number;
+  /** Facade with the highest daily energy potential */
+  bestEnergyFacade: { direction: string; energy: number } | null;
 }
 
 function formatTime(date: Date): string {
@@ -42,6 +48,26 @@ export function computeSunlightStats(
       hours: sorted[sorted.length - 1].sunlightHours,
     };
     avgExposure = facades.reduce((sum, f) => sum + f.sunlightHours, 0) / facades.length;
+
+    const peakIntensity = Math.max(...facades.map((f) => f.intensity));
+    const avgDailyEnergy = facades.reduce((sum, f) => sum + f.dailyEnergy, 0) / facades.length;
+    const byEnergy = [...facades].sort((a, b) => b.dailyEnergy - a.dailyEnergy);
+    const bestEnergyFacade = byEnergy[0].dailyEnergy > 0
+      ? { direction: byEnergy[0].direction, energy: byEnergy[0].dailyEnergy }
+      : null;
+
+    return {
+      sunrise,
+      sunset,
+      daylightHours,
+      bestFacade,
+      worstFacade,
+      avgExposure,
+      totalFacades: facades.length,
+      peakIntensity,
+      avgDailyEnergy,
+      bestEnergyFacade,
+    };
   }
 
   return {
@@ -52,5 +78,8 @@ export function computeSunlightStats(
     worstFacade,
     avgExposure,
     totalFacades: facades.length,
+    peakIntensity: 0,
+    avgDailyEnergy: 0,
+    bestEnergyFacade: null,
   };
 }

@@ -12,6 +12,9 @@ describe("SunlightStatsPanel", () => {
     worstFacade: { direction: "N", hours: 1.2 },
     avgExposure: 4.7,
     totalFacades: 4,
+    peakIntensity: 850,
+    avgDailyEnergy: 4200,
+    bestEnergyFacade: { direction: "S", energy: 5800 },
   };
 
   it("renders sunrise, sunset, daylight", () => {
@@ -41,6 +44,9 @@ describe("SunlightStatsPanel", () => {
       worstFacade: null,
       avgExposure: 0,
       totalFacades: 0,
+      peakIntensity: 0,
+      avgDailyEnergy: 0,
+      bestEnergyFacade: null,
     };
 
     render(<SunlightStatsPanel stats={stats} />);
@@ -65,6 +71,9 @@ describe("SunlightStatsPanel", () => {
       worstFacade: null,
       avgExposure: 0,
       totalFacades: 0,
+      peakIntensity: 0,
+      avgDailyEnergy: 0,
+      bestEnergyFacade: null,
     };
 
     render(<SunlightStatsPanel stats={stats} />);
