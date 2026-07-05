@@ -103,32 +103,32 @@ export function FacadeAnalysis({ facades, selectedDirection, onSelectDirection }
                   background: "#f5f5f5",
                   borderRadius: 4,
                   padding: "1px 5px",
-                  border: `1px solid ${intensityColor(f.intensity)}44`,
+                  border: `1px solid ${intensityColor(f.intensity ?? 0)}44`,
                 }}
-                title={`cosθ=${f.cosTheta.toFixed(2)} — how directly sun hits`}
+                title={`cosθ=${(f.cosTheta ?? 0).toFixed(2)} — how directly sun hits`}
               >
                 <span style={{ fontSize: 10, color: "#888" }}>☀</span>
                 <span
                   style={{
                     fontVariantNumeric: "tabular-nums",
-                    color: intensityColor(f.intensity),
+                    color: intensityColor(f.intensity ?? 0),
                     fontWeight: 600,
                     fontSize: 11,
                   }}
                 >
-                  {f.intensity.toFixed(0)} W/m²
+                  {(f.intensity ?? 0).toFixed(0)} W/m²
                 </span>
               </div>
 
               {/* Daily energy */}
               <div style={{ fontSize: 10, color: "#888" }}>
-                <span style={{ fontVariantNumeric: "tabular-nums" }}>{f.dailyEnergy.toFixed(0)}</span>{" "}
+                <span style={{ fontVariantNumeric: "tabular-nums" }}>{(f.dailyEnergy ?? 0).toFixed(0)}</span>{" "}
                 Wh/m²·day
               </div>
 
               {/* cosTheta indicator */}
               <div style={{ marginLeft: "auto", fontSize: 10, color: "#aaa" }} title="Directness (1=perpendicular, 0=glancing)">
-                cosθ {f.cosTheta.toFixed(2)}
+                cosθ {(f.cosTheta ?? 0).toFixed(2)}
               </div>
             </div>
           </div>

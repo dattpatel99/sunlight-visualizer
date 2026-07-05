@@ -26,17 +26,17 @@ export interface FacadeExposure extends Facade {
    */
   sunlightHours: number;
   /** Instantaneous direct irradiance at the given moment (W/m²) */
-  intensity: number;
+  intensity?: number;
   /**
    * Integrated daily direct radiant energy per unit facade area (Wh/m²/day).
    * Derived from summing DNI × cosTheta × dt over all daylight samples.
    */
-  dailyEnergy: number;
+  dailyEnergy?: number;
   /**
    * Cosine of the angle between the facade normal and sun direction (0–1).
    * 1 = sun directly perpendicular to facade; 0 = sun grazing or behind facade.
    */
-  cosTheta: number;
+  cosTheta?: number;
 }
 
 const DIRECTIONS = [

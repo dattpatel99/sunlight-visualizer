@@ -49,11 +49,11 @@ export function computeSunlightStats(
     };
     avgExposure = facades.reduce((sum, f) => sum + f.sunlightHours, 0) / facades.length;
 
-    const peakIntensity = Math.max(...facades.map((f) => f.intensity));
-    const avgDailyEnergy = facades.reduce((sum, f) => sum + f.dailyEnergy, 0) / facades.length;
-    const byEnergy = [...facades].sort((a, b) => b.dailyEnergy - a.dailyEnergy);
-    const bestEnergyFacade = byEnergy[0].dailyEnergy > 0
-      ? { direction: byEnergy[0].direction, energy: byEnergy[0].dailyEnergy }
+    const peakIntensity = Math.max(...facades.map((f) => f.intensity ?? 0));
+    const avgDailyEnergy = facades.reduce((sum, f) => sum + (f.dailyEnergy ?? 0), 0) / facades.length;
+    const byEnergy = [...facades].sort((a, b) => (b.dailyEnergy ?? 0) - (a.dailyEnergy ?? 0));
+    const bestEnergyFacade = (byEnergy[0].dailyEnergy ?? 0) > 0
+      ? { direction: byEnergy[0].direction, energy: byEnergy[0].dailyEnergy as number }
       : null;
 
     return {
