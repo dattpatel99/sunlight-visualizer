@@ -41,10 +41,14 @@ export interface TileGrid {
  * Fetch a grid of OSM tiles around a center point and composite them
  * into a single image. Returns sizing info in meters for positioning
  * the ground plane.
+ *
+ * Progressive: yields partial results as tiles arrive so the ground
+ * plane can render incrementally instead of waiting for all 25–49 tiles.
  */
 export async function fetchTileGrid(
   center: LatLng,
-  gridSize: number = 5 // NxN tiles
+  gridSize: number = 5, // NxN tiles (reduced from 7 for faster initial paint)
+  onTileLoaded?: (index: number, total: number) => void
 ): Promise<TileGrid> {
   const zoom = 17; // ~1.2m/px, good detail for buildings
   const centerTile = latLngToTile(center.lat, center.lng, zoom);
@@ -71,32 +75,56 @@ export async function fetchTileGrid(
   canvas.height = totalPx;
   const ctx = canvas.getContext("2d")!;
 
-  // Fetch all tiles in parallel
-  const promises: Promise<void>[] = [];
+  const total = gridSize * gridSize;
+  let loaded = 0;
+
+  // Fetch tiles sequentially in small batches to avoid connection-limit
+  // starvation of other resources (PMTiles, React waterfill).
+  // Browser max connections ~6 per domain; load 6 at a time.
+  const BATCH_SIZE = 6;
+  const tiles: { tx: number; ty: number; px: number; py: number }[] = [];
+
   for (let dy = -half; dy <= half; dy++) {
     for (let dx = -half; dx <= half; dx++) {
-      const tx = centerTile.x + dx;
-      const ty = centerTile.y + dy;
-      const url = `https://tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`;
-      const px = (dx + half) * TILE_SIZE;
-      const py = (dy + half) * TILE_SIZE;
-
-      promises.push(
-        new Promise<void>((resolve) => {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.onload = () => {
-            ctx.drawImage(img, px, py);
-            resolve();
-          };
-          img.onerror = () => resolve(); // skip failed tiles
-          img.src = url;
-        })
-      );
+      tiles.push({
+        tx: centerTile.x + dx,
+        ty: centerTile.y + dy,
+        px: (dx + half) * TILE_SIZE,
+        py: (dy + half) * TILE_SIZE,
+      });
     }
   }
 
-  await Promise.all(promises);
+  for (let i = 0; i < tiles.length; i += BATCH_SIZE) {
+    const batch = tiles.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(
+        (t) =>
+          new Promise<void>((resolve) => {
+            const url = `https://tile.openstreetmap.org/${zoom}/${t.tx}/${t.ty}.png`;
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+              ctx.drawImage(img, t.px, t.py);
+              URL.revokeObjectURL(img.src);
+              loaded++;
+              onTileLoaded?.(loaded, total);
+              resolve();
+            };
+            img.onerror = () => {
+              // Silently skip failed tiles — show partial grid rather than nothing
+              loaded++;
+              onTileLoaded?.(loaded, total);
+              resolve();
+            };
+            img.src = url;
+          })
+      )
+    );
+    // Yield to browser between batches so React renders can interleave
+    await new Promise((r) => setTimeout(r, 0));
+  }
+
   const imageUrl = canvas.toDataURL();
   const totalMeters = gridSize * tileMeters;
 

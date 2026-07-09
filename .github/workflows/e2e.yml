@@ -1,0 +1,104 @@
+name: E2E UI Tests
+
+on:
+  push:
+    branches: [main, feat/productionization-testing]
+  pull_request:
+    branches: [main, feat/productionization-testing]
+
+  # Allow manual triggering from the Actions tab
+  workflow_dispatch:
+
+concurrency:
+  # Only run one run of this workflow at a time on the same branch
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Playwright E2E Tests
+    runs-on: ubuntu-latest
+
+    # Cancel any in-progress runs when a new one starts on the same branch
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: sunlight-visualizer/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd sunlight-visualizer
+          npm ci
+
+      # ── Install Playwright browsers ───────────────────────────────────────
+      # ubuntu-latest has the system deps needed; no root password needed.
+      # This installs Chromium + all required libraries (GTK, libnss3, etc.)
+      - name: Install Playwright browsers
+        run: |
+          cd sunlight-visualizer
+          npx playwright install --with-deps chromium
+
+      # ── Build the app ─────────────────────────────────────────────────────
+      # Build ensures TypeScript is clean and the app compiles before we spend
+      # time running E2E tests against a broken build.
+      - name: Build app
+        run: |
+          cd sunlight-visualizer
+          npm run build
+
+      # ── Start the app in the background ─────────────────────────────────
+      # We use `npm run preview` (production build) rather than `dev` so the
+      # test environment mirrors production as closely as possible.
+      - name: Start app server
+        run: |
+          cd sunlight-visualizer
+          npm run preview -- --port 5173 &
+          echo "Waiting for server to be ready..."
+          # Retry for up to 20s
+          for i in $(seq 1 20); do
+            if curl -s -o /dev/null http://localhost:5173/sunlight-visualizer/; then
+              echo "Server is ready!"
+              break
+            fi
+            sleep 1
+          done
+
+      # ── Run Playwright tests ───────────────────────────────────────────────
+      - name: Run E2E tests
+        env:
+          CI: true
+          # Tell the Playwright config we're in CI (sequential, no webServer auto-start)
+          BASE_URL: http://localhost:5173/sunlight-visualizer
+        run: |
+          cd sunlight-visualizer
+          npx playwright test --project=chromium
+
+      # ── Upload artifacts on failure ───────────────────────────────────────
+      - name: Upload test artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            sunlight-visualizer/playwright-report/
+            sunlight-visualizer/test-results/
+          retention-days: 14
+          # Don't fail the workflow if upload fails (e.g. disk space)
+          if-no-files-found: ignore
+
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-${{ github.run_number }}
+          path: sunlight-visualizer/.playwright/**/trace.zip
+          retention-days: 14
+          if-no-files-found: ignore

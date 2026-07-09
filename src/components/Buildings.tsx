@@ -21,39 +21,31 @@ export function Buildings({ buildings, selectedId, onSelect, facadeExposures, hi
   // For large counts, merge non-selected buildings into one mesh.
   const shouldMerge = buildings.length > MERGE_THRESHOLD;
 
-  const mergedGeometry = useMemo(() => {
-    if (!shouldMerge) return null;
+  // Single pass: build merged geometry AND bounding-box lookup simultaneously
+  // (avoids calling createBuildingGeometry twice per building per render)
+  const { mergedGeometry, buildingLookup } = useMemo(() => {
+    if (!shouldMerge) return { mergedGeometry: null, buildingLookup: null };
 
     const geometries: THREE.BufferGeometry[] = [];
+    const lookup: { id: number; bbox: THREE.Box3 }[] = [];
+
     for (const b of buildings) {
       if (b.id === selectedId) continue;
       const geo = createBuildingGeometry(b);
       // toNonIndexed so mergeGeometries works cleanly
       geometries.push(geo.toNonIndexed());
-    }
-    if (geometries.length === 0) return null;
-
-    const merged = mergeGeometries(geometries, false);
-    // Dispose source geometries
-    for (const g of geometries) g.dispose();
-    return merged;
-  }, [buildings, selectedId, shouldMerge]);
-
-  // Build a lookup: click position -> building id for the merged mesh
-  const buildingLookup = useMemo(() => {
-    if (!shouldMerge) return null;
-    // For merged mesh, we use raycasting + bounding box check
-    const lookup: { id: number; bbox: THREE.Box3 }[] = [];
-    for (const b of buildings) {
-      if (b.id === selectedId) continue;
-      const geo = createBuildingGeometry(b);
+      // Compute bounding box for click detection (dispose after use)
       geo.computeBoundingBox();
       if (geo.boundingBox) {
         lookup.push({ id: b.id, bbox: geo.boundingBox.clone() });
       }
       geo.dispose();
     }
-    return lookup;
+
+    if (geometries.length === 0) return { mergedGeometry: null, buildingLookup: null };
+    const merged = mergeGeometries(geometries, false);
+    for (const g of geometries) g.dispose();
+    return { mergedGeometry: merged, buildingLookup: lookup };
   }, [buildings, selectedId, shouldMerge]);
 
   const handleMergedClick = (e: THREE.Intersection) => {
