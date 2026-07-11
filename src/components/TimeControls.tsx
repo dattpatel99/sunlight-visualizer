@@ -1,13 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 interface TimeControlsProps {
   date: Date;
   onDateChange: (date: Date) => void;
+  playing: boolean;
+  onPlayingChange: (playing: boolean) => void;
+  speed: number;
+  onSpeedChange: (speed: number) => void;
+  /** Disables time controls when user is a viewer (read-only mode) */
+  disabled?: boolean;
 }
 
-export function TimeControls({ date, onDateChange }: TimeControlsProps) {
-  const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState(10); // minutes per tick
+export function TimeControls({
+  date,
+  onDateChange,
+  playing,
+  onPlayingChange,
+  speed,
+  onSpeedChange,
+  disabled = false,
+}: TimeControlsProps) {
   const intervalRef = useRef<number | null>(null);
   const dateRef = useRef(date);
   dateRef.current = date;
@@ -32,7 +44,7 @@ export function TimeControls({ date, onDateChange }: TimeControlsProps) {
   };
 
   useEffect(() => {
-    if (!playing) {
+    if (!playing || disabled) {
       if (intervalRef.current !== null) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -55,7 +67,7 @@ export function TimeControls({ date, onDateChange }: TimeControlsProps) {
         intervalRef.current = null;
       }
     };
-  }, [playing, speed, onDateChange]);
+  }, [playing, speed, onDateChange, disabled]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -79,7 +91,7 @@ export function TimeControls({ date, onDateChange }: TimeControlsProps) {
           max={1439}
           value={totalMinutes}
           onChange={(e) => {
-            setPlaying(false);
+            onPlayingChange(false);
             handleMinutes(Number(e.target.value));
           }}
           style={{ width: "100%", marginTop: 4 }}
@@ -87,20 +99,24 @@ export function TimeControls({ date, onDateChange }: TimeControlsProps) {
       </label>
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <button
-          onClick={() => setPlaying(!playing)}
+          onClick={() => onPlayingChange(!playing)}
+          disabled={disabled}
           style={{
             ...playBtnStyle,
             background: playing ? "#dc2626" : "#16a34a",
+            opacity: disabled ? 0.5 : 1,
+            cursor: disabled ? "not-allowed" : "pointer",
           }}
         >
-          {playing ? "Pause" : "Play"}
+          {disabled ? "Viewer" : playing ? "Pause" : "Play"}
         </button>
         <label style={{ fontSize: 11, color: "#888", display: "flex", alignItems: "center", gap: 4 }}>
           Speed
           <select
             value={speed}
-            onChange={(e) => setSpeed(Number(e.target.value))}
-            style={{ fontSize: 11, padding: "2px 4px" }}
+            onChange={(e) => onSpeedChange(Number(e.target.value))}
+            disabled={disabled}
+            style={{ fontSize: 11, padding: "2px 4px", opacity: disabled ? 0.5 : 1 }}
           >
             <option value={5}>Slow</option>
             <option value={10}>Normal</option>
