@@ -3,15 +3,17 @@
  * and a 5-day forecast. Fetches + caches from Open-Meteo via weatherService.
  */
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { fetchWeather, type WeatherData } from "../lib/gardener/weatherService";
 import type { LatLng } from "../types";
 
 interface WeatherPanelProps {
   location: LatLng | null;
+  /** Selected date in the app — weather will be shown for this date */
+  date?: Date;
 }
 
-export function WeatherPanel({ location }: WeatherPanelProps) {
+export function WeatherPanel({ location, date }: WeatherPanelProps) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +51,32 @@ export function WeatherPanel({ location }: WeatherPanelProps) {
     }
   };
 
+  // Determine which day to display based on selected date
+  const displayDay = useMemo(() => {
+    if (!weather || !date) return weather?.today;
+
+    const selectedDateStr = date.toISOString().split("T")[0];
+    const match = weather.forecast.find(d => d.date === selectedDateStr);
+    if (match) return match;
+
+    // If no exact match, find nearest within ±3 days
+    const selectedTime = date.getTime();
+    let bestDiff = Infinity;
+    let bestDay = weather.today;
+    for (const day of weather.forecast) {
+      const dayTime = new Date(day.date + "T12:00:00").getTime();
+      const diff = Math.abs(dayTime - selectedTime);
+      if (diff < bestDiff && diff < 4 * 24 * 60 * 60 * 1000) { // ±3 days
+        bestDiff = diff;
+        bestDay = day;
+      }
+    }
+    return bestDay;
+  }, [weather, date]);
+
+  const displayDayIndex = weather?.forecast.findIndex(d => d.date === displayDay?.date) ?? 0;
+  const isToday = displayDayIndex === 0;
+
   if (!location) {
     return (
       <div style={panelStyle}>
@@ -83,9 +111,13 @@ export function WeatherPanel({ location }: WeatherPanelProps) {
     );
   }
 
-  if (!weather) return null;
+  if (!weather || !displayDay) return null;
 
-  const { current, today, forecast } = weather;
+  const { current, forecast } = weather;
+
+  // Show forecast for selected date + next 4 days
+  const forecastStartIndex = displayDayIndex;
+  const forecastSlice = forecast.slice(forecastStartIndex, forecastStartIndex + 5);
 
   return (
     <div style={panelStyle}>
@@ -102,32 +134,32 @@ export function WeatherPanel({ location }: WeatherPanelProps) {
         </button>
       </div>
 
-      {/* Current + today */}
+      {/* Current + selected day */}
       <div style={currentStyle}>
-        <span style={emojiStyle}>{current.condition.emoji}</span>
+        <span style={emojiStyle}>{displayDay.condition.emoji}</span>
         <div style={tempStyle}>
-          <span style={bigTempStyle}>{Math.round(current.temp)}°C</span>
-          <span style={condLabelStyle}>{current.condition.label}</span>
+          <span style={bigTempStyle}>{Math.round(isToday ? current.temp : displayDay.high)}°C</span>
+          <span style={condLabelStyle}>{displayDay.condition.label}</span>
         </div>
         <div style={todayStats}>
-          <span>H: {Math.round(today.high)}°</span>
-          <span style={{ color: "#6b7280" }}>L: {Math.round(today.low)}°</span>
-          <span>💧 {today.precipitationMm.toFixed(1)}mm</span>
+          <span>H: {Math.round(displayDay.high)}°</span>
+          <span style={{ color: "#6b7280" }}>L: {Math.round(displayDay.low)}°</span>
+          <span>💧 {displayDay.precipitationMm.toFixed(1)}mm</span>
         </div>
       </div>
 
       {/* Frost / rain warnings */}
-      {weather.frostToday && (
-        <div style={warningStyle}>⚠️ Frost expected tonight — cover or move frost-sensitive plants</div>
+      {displayDay.low < 2 && (
+        <div style={warningStyle}>⚠️ Frost expected — cover or move frost-sensitive plants</div>
       )}
-      {weather.rainyToday && !weather.frostToday && (
+      {displayDay.precipitationMm > 5 && displayDay.low >= 2 && (
         <div style={tipStyle}>💧 Good transplanting weather — rain will settle seedlings in gently</div>
       )}
 
       {/* 5-day mini forecast */}
-      {forecast.length > 1 && (
+      {forecastSlice.length > 0 && (
         <div style={forecastStyle}>
-          {forecast.slice(1, 6).map((day) => (
+          {forecastSlice.map((day) => (
             <div key={day.date} style={forecastDayStyle}>
               <span style={forecastDayLabel}>
                 {new Date(day.date + "T12:00:00").toLocaleDateString("en", { weekday: "short" })}

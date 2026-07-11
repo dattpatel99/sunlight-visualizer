@@ -88,7 +88,7 @@ export default function App() {
 
         <AddressSearch onSelect={handleAddressSelect} />
 
-        <LocationInput onLoad={handleLoad} loading={loading} />
+        <LocationInput onLoad={handleLoad} loading={loading} currentLocation={center} />
 
         {error && (
           <div style={{ color: "#dc2626", fontSize: 13, padding: "4px 0" }}>
@@ -108,7 +108,7 @@ export default function App() {
 
         <hr style={hrStyle} />
 
-        <WeatherPanel location={center} />
+        <WeatherPanel location={center} date={date} />
 
         <BuildingInfo building={selectedBuilding} />
 

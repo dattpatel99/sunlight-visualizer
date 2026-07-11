@@ -33,7 +33,25 @@ export function PlantSuggestions({ plantIds, visible, onHide, onSave }: PlantSug
   const [expanded, setExpanded] = useState<string | null>(null);
   const [saved, setSaved] = useState<Set<string>>(new Set());
 
-  if (!visible || plantIds.length === 0) return null;
+  if (!visible || plantIds.length === 0) {
+    // Show a helpful empty state when panel is visible but no plants yet
+    if (visible && plantIds.length === 0) {
+      return (
+        <div style={panelStyle}>
+          <div style={headerStyle}>
+            <span style={titleStyle}>🌱 Plant Picks</span>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button style={closeBtn} onClick={onHide} title="Hide plant suggestions">✕</button>
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: "#6b7280", padding: "8px 4px", textAlign: "center" }}>
+            No plant suggestions yet. Ask Fern in the chat below or select a facade to see recommendations.
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }
 
   const plants = plantIds.map((id) => PLANTS.find((p) => p.id === id)).filter(Boolean) as PlantEntry[];
 
