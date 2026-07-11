@@ -13,6 +13,9 @@ import { TimeControls } from "./components/TimeControls";
 import { BuildingInfo } from "./components/BuildingInfo";
 import { FacadeAnalysis } from "./components/FacadeAnalysis";
 import { SunlightStatsPanel } from "./components/SunlightStats";
+import { WeatherPanel } from "./components/WeatherPanel";
+import { PlantSuggestions } from "./components/PlantSuggestions";
+import { GardeningChat } from "./components/GardeningChat";
 
 function getDefaultDate(): Date {
   const d = new Date();
@@ -27,6 +30,8 @@ export default function App() {
   const [radius, setRadius] = useState(OVERPASS_RADIUS);
   const [dataSource, setDataSource] = useState<DataSource>("overture");
   const [selectedFacadeDirection, setSelectedFacadeDirection] = useState<string | null>(null);
+  const [suggestedPlantIds, setSuggestedPlantIds] = useState<string[]>([]);
+  const [plantSuggestionsVisible, setPlantSuggestionsVisible] = useState(true);
 
   const { buildings, loading, error, load } = useBuildings();
   const sunPosition = useSunPosition(center, date);
@@ -103,6 +108,8 @@ export default function App() {
 
         <hr style={hrStyle} />
 
+        <WeatherPanel location={center} />
+
         <BuildingInfo building={selectedBuilding} />
 
         {facadeExposures.length > 0 && (
@@ -117,6 +124,26 @@ export default function App() {
             <SunlightStatsPanel stats={sunlightStats} />
           </>
         )}
+
+        {facadeExposures.length > 0 && (
+          <>
+            <hr style={hrStyle} />
+            <PlantSuggestions
+              plantIds={suggestedPlantIds}
+              visible={plantSuggestionsVisible}
+              onHide={() => setPlantSuggestionsVisible(false)}
+            />
+          </>
+        )}
+
+        <hr style={hrStyle} />
+
+        <GardeningChat
+          location={center}
+          facades={facadeExposures}
+          selectedFacade={selectedFacadeDirection}
+          onPlantSuggestions={setSuggestedPlantIds}
+        />
 
         <div style={{ marginTop: "auto", fontSize: 11, color: "#aaa" }}>
           Data: {dataSource === "overture" ? "Overture Maps Foundation" : "OpenStreetMap contributors"}
