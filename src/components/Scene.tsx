@@ -31,7 +31,10 @@ export function Scene({
       shadows="soft"
       camera={{ position: [100, 150, 200], fov: 50, near: 1, far: 2000 }}
       gl={{ antialias: true }}
-      onPointerMissed={() => onSelectBuilding(-1)}
+      // Only a left-click on empty space deselects — right-drag (pan) must not.
+      onPointerMissed={(e) => {
+        if ((e as MouseEvent).button === 0) onSelectBuilding(-1);
+      }}
     >
       <color attach="background" args={[sunPosition.isNight ? "#1a1a2e" : "#87ceeb"]} />
       <SunLight sunPosition={sunPosition} />

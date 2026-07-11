@@ -4,6 +4,8 @@
  * The agent asks for these gradually and never assumes.
  */
 
+import type { Benefit, GardenFilter } from "./plantDatabase";
+
 export interface GardenerPreferences {
   displayName?: string;
   gardenLocation: "indoor" | "outdoor" | "both";
@@ -16,6 +18,14 @@ export interface GardenerPreferences {
   /** Set once the user has completed initial onboarding */
   onboarded: boolean;
   lastUpdated: string; // ISO date
+
+  // ── Live garden-filter state (drawer wizard + chips + Fern settings) ──
+  /** Apartment (indoor-first) vs Home (outdoor beds/pots) — the drawer toggle. */
+  homeType: "apartment" | "home";
+  /** Benefits the user chose to prioritise ("What are you growing for?"). */
+  benefitGoals: Benefit[];
+  /** 0–100 slider — higher prioritises low-maintenance plants. */
+  maintenancePriority: number;
 }
 
 const STORAGE_KEY = "gardener_preferences";
@@ -30,7 +40,19 @@ const DEFAULT_PREFERENCES: GardenerPreferences = {
   favoriteSeasons: [],
   onboarded: false,
   lastUpdated: new Date().toISOString(),
+  homeType: "home",
+  benefitGoals: [],
+  maintenancePriority: 50,
 };
+
+/** Derive the live GardenFilter (as scorePlant consumes it) from stored prefs. */
+export function gardenFilterFromPrefs(prefs: GardenerPreferences): GardenFilter {
+  return {
+    location: prefs.homeType,
+    benefits: prefs.benefitGoals,
+    maintenancePriority: prefs.maintenancePriority,
+  };
+}
 
 export function loadPreferences(): GardenerPreferences {
   try {
@@ -103,7 +125,7 @@ export function getNextOnboardingQuestion(prefs: GardenerPreferences): Onboardin
   return null;
 }
 
-export const ONSBOARDING_OPTIONS: Record<OnboardingOptionKey, string[]> = {
+export const ONBOARDING_OPTIONS: Record<OnboardingOptionKey, string[]> = {
   name: [],
   location: ["Outdoors (balcony, garden, rooftop)", "Indoors (windowsill, greenhouse)", "Both — I have indoor and outdoor plants"],
   experience: ["Total beginner — I've killed every plant I've ever owned 😅", "Some experience — I've kept a few plants alive", "Seasoned gardener — I know my way around a garden"],

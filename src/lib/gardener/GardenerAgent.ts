@@ -105,11 +105,34 @@ IMPORTANT: Only output JSON. No markdown code fences, no explanation outside the
 // API call
 // ----------------------------------------------------------------
 
-const MODEL = "gpt-4o-mini";
+/** Models the user can choose in Fern settings. */
+export const FERN_MODELS = ["gpt-4o-mini", "gpt-4o", "gpt-4.1"] as const;
+export type FernModel = (typeof FERN_MODELS)[number];
+
+const MODEL_KEY = "gardener_openai_model";
+
+export function getStoredModel(): FernModel {
+  try {
+    const m = sessionStorage.getItem(MODEL_KEY);
+    if (m && (FERN_MODELS as readonly string[]).includes(m)) return m as FernModel;
+  } catch {
+    // ignore
+  }
+  return "gpt-4o-mini";
+}
+
+export function setStoredModel(model: FernModel): void {
+  try {
+    sessionStorage.setItem(MODEL_KEY, model);
+  } catch {
+    // ignore
+  }
+}
 
 async function callOpenAI(
   messages: Array<{ role: string; content: string }>,
-  apiKey: string
+  apiKey: string,
+  model: string
 ): Promise<{ raw: string }> {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -118,7 +141,7 @@ async function callOpenAI(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       messages,
       temperature: 0.8,
       max_tokens: 800,
@@ -271,7 +294,7 @@ export class GardenerAgent {
     const apiMessages = this.buildMessages(text);
 
     try {
-      const { raw } = await callOpenAI(apiMessages, apiKey);
+      const { raw } = await callOpenAI(apiMessages, apiKey, getStoredModel());
 
       // Parse JSON
       let parsed: Partial<AgentResponse>;
@@ -350,9 +373,14 @@ export class GardenerAgent {
             uvIndex: this.weather.uvIndex,
           },
           this.prefs,
+          {
+            location: this.prefs.gardenLocation === "indoor" ? "apartment" : "home",
+            benefits: [],
+            maintenancePriority: 50,
+          },
           6
         );
-        return matched.map((p) => p.id);
+        return matched.map((s) => s.plant.id);
       }
     }
 
