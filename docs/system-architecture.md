@@ -24,7 +24,9 @@ Sunlight Visualizer is a client-side single-page application built with React 19
 
 ### Presentation Layer (`src/components/`)
 
-React components handle all UI rendering and user interaction. The 3D scene is rendered via React Three Fiber, which provides a declarative React interface to Three.js. UI controls (location input, time slider, facade analysis panel) live alongside the 3D canvas.
+React components handle all UI rendering and user interaction. The 3D scene is rendered via React Three Fiber, which provides a declarative React interface to Three.js.
+
+The app shell (the **"1a" redesign**) is a **full-bleed canvas with floating overlays** rather than a fixed sidebar: a floating address bar and a vertical **circle rail** (`components/shell/CircleRail` — a circle is green iff its panel is open) toggle a left **Buildings & Sun** panel (location, building list, facade analysis, sun stats), the right **Garden drawer** (`components/garden/` — wizard, weather strip, live filter chips, and plant cards with a fit-score %), a 🌤️ weather panel, and a bottom time scrubber. **Fern** (`components/fern/`) is a bottom-left assistant nub. Shared visual tokens live in `src/theme.ts`.
 
 ### Logic Layer (`src/hooks/`)
 
@@ -89,7 +91,7 @@ User Input (location, date/time)
 
 ## State Management
 
-Application state lives in `App.tsx` using React's `useState` and is passed down via props. There is no external state management library. Key state includes:
+Application state lives in `App.tsx` using React's `useState` and is passed down via props. There is no external state management library. Panel visibility is tracked as `leftPanel` (`"buildings" | "weather" | null`) plus a `gardenOpen` boolean, which the circle rail toggles. Key state includes:
 
 | State | Description |
 |-------|-------------|

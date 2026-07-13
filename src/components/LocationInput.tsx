@@ -1,24 +1,39 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { LatLng } from "../types";
-import type { DataSource } from "../hooks/useBuildings";
 import { PRESETS, OVERPASS_RADIUS } from "../constants";
 
 interface LocationInputProps {
-  onLoad: (center: LatLng, radius: number, source: DataSource) => void;
+  onLoad: (center: LatLng, radius: number) => void;
   loading: boolean;
+  /** Optional current location to pre‑fill the lat/lng fields */
+  currentLocation?: LatLng | null;
 }
 
-export function LocationInput({ onLoad, loading }: LocationInputProps) {
-  const [lat, setLat] = useState("40.748");
-  const [lng, setLng] = useState("-73.986");
+export function LocationInput({ onLoad, loading, currentLocation }: LocationInputProps) {
+  const [lat, setLat] = useState(currentLocation ? String(currentLocation.lat) : "40.748");
+  const [lng, setLng] = useState(currentLocation ? String(currentLocation.lng) : "-73.986");
   const [radius, setRadius] = useState(OVERPASS_RADIUS);
-  const [source, setSource] = useState<DataSource>("overture");
+
+  // Update local state when currentLocation changes
+  useEffect(() => {
+    if (currentLocation) {
+      setLat(String(currentLocation.lat));
+      setLng(String(currentLocation.lng));
+    }
+  }, [currentLocation]);
 
   const handleLoad = () => {
     const latNum = parseFloat(lat);
     const lngNum = parseFloat(lng);
     if (isNaN(latNum) || isNaN(lngNum)) return;
-    onLoad({ lat: latNum, lng: lngNum }, radius, source);
+    onLoad({ lat: latNum, lng: lngNum }, radius);
+  };
+
+  const handlePresetClick = (p: typeof PRESETS[0]) => {
+    // Update input fields but also immediately load that preset
+    setLat(String(p.location.lat));
+    setLng(String(p.location.lng));
+    onLoad(p.location, radius);
   };
 
   return (
@@ -58,31 +73,6 @@ export function LocationInput({ onLoad, loading }: LocationInputProps) {
           style={{ width: "100%", marginTop: 2 }}
         />
       </label>
-      <label>
-        <span style={{ fontSize: 12, color: "#888" }}>Data source</span>
-        <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
-          <button
-            onClick={() => setSource("overture")}
-            style={{
-              ...sourceBtnStyle,
-              background: source === "overture" ? "#2563eb" : "#f0f0f0",
-              color: source === "overture" ? "white" : "#333",
-            }}
-          >
-            Overture Maps
-          </button>
-          <button
-            onClick={() => setSource("osm")}
-            style={{
-              ...sourceBtnStyle,
-              background: source === "osm" ? "#2563eb" : "#f0f0f0",
-              color: source === "osm" ? "white" : "#333",
-            }}
-          >
-            OpenStreetMap
-          </button>
-        </div>
-      </label>
       <button onClick={handleLoad} disabled={loading} style={buttonStyle}>
         {loading ? "Loading..." : "Load Buildings"}
       </button>
@@ -90,11 +80,7 @@ export function LocationInput({ onLoad, loading }: LocationInputProps) {
         {PRESETS.map((p) => (
           <button
             key={p.name}
-            onClick={() => {
-              setLat(String(p.location.lat));
-              setLng(String(p.location.lng));
-              onLoad(p.location, radius, source);
-            }}
+            onClick={() => handlePresetClick(p)}
             disabled={loading}
             style={presetStyle}
           >
@@ -133,14 +119,4 @@ const presetStyle: React.CSSProperties = {
   borderRadius: 4,
   fontSize: 12,
   cursor: "pointer",
-};
-
-const sourceBtnStyle: React.CSSProperties = {
-  flex: 1,
-  padding: "4px 8px",
-  border: "1px solid #ddd",
-  borderRadius: 4,
-  fontSize: 11,
-  cursor: "pointer",
-  fontWeight: 600,
 };

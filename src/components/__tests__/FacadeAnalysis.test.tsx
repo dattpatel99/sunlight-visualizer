@@ -98,8 +98,8 @@ describe("FacadeAnalysis", () => {
     const nRow = container.querySelector<HTMLElement>('[data-testid="facade-row-N"]');
     expect(nRow).toHaveStyle({ background: "#e0e7ff" });
 
-    // Verify non-selected S row has transparent background
+    // Verify non-selected S row has the default (white) button background
     const sRow = container.querySelector<HTMLElement>('[data-testid="facade-row-S"]');
-    expect(sRow).toHaveStyle({ background: "transparent" });
+    expect(sRow).toHaveStyle({ background: "#ffffff" });
   });
 });

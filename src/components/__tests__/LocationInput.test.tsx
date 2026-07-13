@@ -20,7 +20,7 @@ describe("LocationInput", () => {
     expect(lngInput).toBeInTheDocument();
   });
 
-  it("Load Buildings button calls onLoad with parsed lat/lng, radius, and source", async () => {
+  it("Load Buildings button calls onLoad with parsed lat/lng and radius", async () => {
     const onLoad = vi.fn();
     render(<LocationInput onLoad={onLoad} loading={false} />);
 
@@ -28,11 +28,7 @@ describe("LocationInput", () => {
     await userEvent.click(button);
 
     expect(onLoad).toHaveBeenCalledTimes(1);
-    expect(onLoad).toHaveBeenCalledWith(
-      { lat: 40.748, lng: -73.986 },
-      150,
-      "overture",
-    );
+    expect(onLoad).toHaveBeenCalledWith({ lat: 40.748, lng: -73.986 }, 150);
   });
 
   it("does not call onLoad with invalid (NaN) lat/lng", async () => {
@@ -61,62 +57,22 @@ describe("LocationInput", () => {
     expect(screen.getByText("Radius: 300m")).toBeInTheDocument();
   });
 
-  it("data source toggle switches between 'overture' and 'osm'", async () => {
-    const onLoad = vi.fn();
-    render(<LocationInput onLoad={onLoad} loading={false} />);
-
-    const osmButton = screen.getByRole("button", { name: "OpenStreetMap" });
-    await userEvent.click(osmButton);
-
-    const loadButton = screen.getByRole("button", { name: "Load Buildings" });
-    await userEvent.click(loadButton);
-
-    expect(onLoad).toHaveBeenCalledWith(
-      { lat: 40.748, lng: -73.986 },
-      150,
-      "osm",
-    );
-
-    onLoad.mockClear();
-
-    await userEvent.click(screen.getByText("Overture Maps"));
-    await userEvent.click(loadButton);
-
-    expect(onLoad).toHaveBeenCalledWith(
-      { lat: 40.748, lng: -73.986 },
-      150,
-      "overture",
-    );
-  });
-
   it("preset buttons call onLoad with correct locations", async () => {
     const onLoad = vi.fn();
     render(<LocationInput onLoad={onLoad} loading={false} />);
 
     await userEvent.click(screen.getByRole("button", { name: "NYC" }));
-    expect(onLoad).toHaveBeenCalledWith(
-      { lat: 40.748, lng: -73.986 },
-      150,
-      "overture",
-    );
+    expect(onLoad).toHaveBeenCalledWith({ lat: 40.748, lng: -73.986 }, 150);
 
     onLoad.mockClear();
 
     await userEvent.click(screen.getByRole("button", { name: "London" }));
-    expect(onLoad).toHaveBeenCalledWith(
-      { lat: 51.5074, lng: -0.1278 },
-      150,
-      "overture",
-    );
+    expect(onLoad).toHaveBeenCalledWith({ lat: 51.5074, lng: -0.1278 }, 150);
 
     onLoad.mockClear();
 
     await userEvent.click(screen.getByRole("button", { name: "Tokyo" }));
-    expect(onLoad).toHaveBeenCalledWith(
-      { lat: 35.6762, lng: 139.6503 },
-      150,
-      "overture",
-    );
+    expect(onLoad).toHaveBeenCalledWith({ lat: 35.6762, lng: 139.6503 }, 150);
   });
 
   it("loading state: button shows 'Loading...' and is disabled", () => {

@@ -46,14 +46,16 @@ export function FacadeAnalysis({ facades, selectedDirection, onSelectDirection }
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <h3 style={{ margin: 0, fontSize: 14 }}>Facade Sunlight</h3>
       <div style={{ fontSize: 11, color: "#888", marginBottom: 2 }}>
-        Click a wall to highlight it in the 3D view
+        Pick a wall to focus it (highlights in 3D, drives plant picks)
       </div>
       {facades.map((f, i) => {
         const isSelected = selectedDirection === f.direction;
         return (
-          <div
+          <button
             key={i}
+            type="button"
             data-testid={`facade-row-${f.direction}`}
+            aria-pressed={isSelected}
             onClick={() => onSelectDirection(isSelected ? null : f.direction)}
             style={{
               display: "flex",
@@ -61,11 +63,17 @@ export function FacadeAnalysis({ facades, selectedDirection, onSelectDirection }
               gap: 3,
               fontSize: 12,
               cursor: "pointer",
-              padding: "4px 6px",
-              borderRadius: 4,
-              background: isSelected ? "#e0e7ff" : "transparent",
-              border: isSelected ? "1px solid #818cf8" : "1px solid transparent",
-              transition: "all 0.15s",
+              padding: "6px 8px",
+              borderRadius: 8,
+              textAlign: "left",
+              font: "inherit",
+              width: "100%",
+              background: isSelected ? "#e0e7ff" : "#ffffff",
+              border: `1.5px solid ${isSelected ? "#6366f1" : "#2a2a2a"}`,
+              // Raised so it reads as a button; presses in when selected.
+              boxShadow: isSelected ? "inset 0 2px 3px rgba(0,0,0,.14)" : "0 2px 0 rgba(0,0,0,.12)",
+              transform: isSelected ? "translateY(1px)" : "none",
+              transition: "all 0.12s",
             }}
           >
             {/* Direction + exposure bar */}
@@ -131,7 +139,7 @@ export function FacadeAnalysis({ facades, selectedDirection, onSelectDirection }
                 cosθ {(f.cosTheta ?? 0).toFixed(2)}
               </div>
             </div>
-          </div>
+          </button>
         );
       })}
     </div>

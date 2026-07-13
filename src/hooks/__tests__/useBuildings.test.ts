@@ -7,15 +7,9 @@ vi.mock("../../lib/overpass", () => ({
   fetchBuildings: vi.fn(),
 }));
 
-vi.mock("../../lib/overture", () => ({
-  fetchOvertureBuildings: vi.fn(),
-}));
-
 import { fetchBuildings } from "../../lib/overpass";
-import { fetchOvertureBuildings } from "../../lib/overture";
 
 const mockFetchBuildings = vi.mocked(fetchBuildings);
-const mockFetchOvertureBuildings = vi.mocked(fetchOvertureBuildings);
 
 const sampleBuildings: BuildingData[] = [
   {
@@ -50,7 +44,7 @@ describe("useBuildings", () => {
     const { result } = renderHook(() => useBuildings());
 
     act(() => {
-      result.current.load({ lat: 40.748, lng: -73.986 }, 150, "osm");
+      result.current.load({ lat: 40.748, lng: -73.986 }, 150);
     });
 
     expect(result.current.loading).toBe(true);
@@ -68,33 +62,13 @@ describe("useBuildings", () => {
     expect(result.current.error).toBeNull();
   });
 
-  it("loads buildings from Overture source", async () => {
-    mockFetchOvertureBuildings.mockResolvedValue(sampleBuildings);
-
-    const { result } = renderHook(() => useBuildings());
-
-    act(() => {
-      result.current.load({ lat: 40.748, lng: -73.986 }, 200, "overture");
-    });
-
-    await vi.waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    });
-
-    expect(mockFetchOvertureBuildings).toHaveBeenCalledWith(
-      { lat: 40.748, lng: -73.986 },
-      200
-    );
-    expect(result.current.buildings.length).toBe(1);
-  });
-
   it("projects raw buildings to local XZ coordinates", async () => {
     mockFetchBuildings.mockResolvedValue(sampleBuildings);
 
     const { result } = renderHook(() => useBuildings());
 
     act(() => {
-      result.current.load({ lat: 40.748, lng: -73.986 }, 150, "osm");
+      result.current.load({ lat: 40.748, lng: -73.986 }, 150);
     });
 
     await vi.waitFor(() => {
@@ -117,7 +91,7 @@ describe("useBuildings", () => {
     const { result } = renderHook(() => useBuildings());
 
     act(() => {
-      result.current.load({ lat: 40.748, lng: -73.986 }, 150, "osm");
+      result.current.load({ lat: 40.748, lng: -73.986 }, 150);
     });
 
     await vi.waitFor(() => {
@@ -134,7 +108,7 @@ describe("useBuildings", () => {
     const { result } = renderHook(() => useBuildings());
 
     act(() => {
-      result.current.load({ lat: 40.748, lng: -73.986 }, 150, "osm");
+      result.current.load({ lat: 40.748, lng: -73.986 }, 150);
     });
 
     await vi.waitFor(() => {
@@ -151,7 +125,7 @@ describe("useBuildings", () => {
     const { result } = renderHook(() => useBuildings());
 
     act(() => {
-      result.current.load({ lat: 40, lng: -74 }, 150, "osm");
+      result.current.load({ lat: 40, lng: -74 }, 150);
     });
 
     await vi.waitFor(() => {
@@ -159,7 +133,7 @@ describe("useBuildings", () => {
     });
 
     act(() => {
-      result.current.load({ lat: 40, lng: -74 }, 150, "osm");
+      result.current.load({ lat: 40, lng: -74 }, 150);
     });
 
     // Error should be cleared immediately when loading starts
